@@ -18,5 +18,5 @@ custom:
   environment: ${file(./env.yml):${self:provider.stage}, file(./env.yml):default}
 
 functions:
-  getQuotes:
-    handler: handler.getQuotes
+  tweetQuote:
+    handler: handler.tweetQuote
