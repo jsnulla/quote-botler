@@ -2,66 +2,57 @@
 const fetch = require('node-fetch')
 const Twitter = require('twitter')
 
-module.exports.getQuotes = async (event, context) => {
-  const chosenQuote = await fetch('https://favqs.com/api/quotes/?filter=success&type=tag', {
-    method: 'get',
-    headers: new fetch.Headers({
-      'Authorization': `Token token="${process.env.favqs_api_key}"`,
-      'Content-Type': 'application/json'
-    })
-  })
+module.exports.tweetQuote = async (event, context) => {
+  const chosenQuote = await fetch('https://favqs.com/api/qotd', { method: 'get' })
     .then(response => response.json())
     .then((response) => {
-      return chooseQuote(response.quotes)
+      const isQuoteValid = checkQuoteValidity(response.quote)
+      console.log('quote fetched', response)
+      console.log('quote is valid?', isQuoteValid)
+
+      return isQuoteValid ? response.quote : false
     })
 
-  const params = {
-    status: `"${chosenQuote.quote.body}" - ${chosenQuote.quote.author}\r\nJayBot`
-  }
+  if (chosenQuote == false) {
+    console.log('chosen quote was not valid :(')
+  } else {
+    console.log('chosen quote', chosenQuote)
+    const params = {
+      status: `"${chosenQuote.body}" - ${chosenQuote.author}\r\n\r\n- JayBot`
+    }
 
-  console.log('chosen quote', chosenQuote)
+    const client = await new Twitter({
+      consumer_key: process.env.twitter_consumer_key,
+      consumer_secret: process.env.twitter_consumer_secret,
+      access_token_key: process.env.twitter_access_key,
+      access_token_secret: process.env.twitter_access_secret,
+    })
 
-  const client = await new Twitter({
-    consumer_key: process.env.twitter_consumer_key,
-    consumer_secret: process.env.twitter_consumer_secret,
-    access_token_key: process.env.twitter_access_key,
-    access_token_secret: process.env.twitter_access_secret,
-  })
-
-  await client.post('statuses/update', params, (error, data, response) => {
-    console.log('error', error)
-    console.log('data', data)
-    console.log('response', response)
-  })
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      message: 'Go Serverless v1.0! Your function executed successfully!',
-      input: event,
-    }),
-  }
-
-  function chooseQuote(quotes) {
-    const candidates = quotes.map((quote) => {
-      if ((quote.body.length + quote.author.length + 20) < 280) {
-        return quote
+    await client.post('statuses/update', params, (error, data, response) => {
+      if (error) {
+        console.log('tweet failed', error)
+      } else {
+        console.log('tweeting quote successful', data, response)
       }
     })
 
-    if (candidates.length > 0) {
-      return {
-        candidate: true,
-        quote: candidates[Math.floor(Math.random() * Math.floor(candidates.length))]
-      }
-    } else {
-      return {
-        candidate: false,
-        quote: quotes[Math.floor(Math.random() * Math.floor(quotes.length))]
-      }
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: 'Go Serverless v1.0! Your function executed successfully!',
+        input: event,
+      }),
     }
   }
+}
 
-  // Use this code if you don't use the http event with the LAMBDA-PROXY integration
-  // return { message: 'Go Serverless v1.0! Your function executed successfully!', event }
+function checkQuoteValidity(quote) {
+  console.log('quote to check', quote)
+  if ((quote.body.length + quote.author.length + 20) <= 280) {
+    if (quote.downvotes_count < 1) {
+      return true
+    }
+  } else {
+    return false
+  }
 }
