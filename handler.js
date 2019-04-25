@@ -1,8 +1,22 @@
 'use strict'
 const fetch = require('node-fetch')
 const Twitter = require('twitter')
+const client = new Twitter({
+  consumer_key: process.env.twitter_consumer_key,
+  consumer_secret: process.env.twitter_consumer_secret,
+  access_token_key: process.env.twitter_access_key,
+  access_token_secret: process.env.twitter_access_secret,
+})
 
 module.exports.tweetQuote = async (event, context) => {
+  client.get('account/verify_credentials.json', (error, data, response) => {
+    if (error) {
+      console.log('ERROR - could not verify account', error)
+    } else {
+      console.log('VERIFICATION DATA', data, response)
+    }
+  })
+
   const chosenQuote = await fetch('https://favqs.com/api/qotd', { method: 'get' })
     .then(response => response.json())
     .then((response) => {
@@ -21,28 +35,15 @@ module.exports.tweetQuote = async (event, context) => {
       status: `"${chosenQuote.body}" - ${chosenQuote.author}\r\n\r\n- JayBot`
     }
 
-    const client = await new Twitter({
-      consumer_key: process.env.twitter_consumer_key,
-      consumer_secret: process.env.twitter_consumer_secret,
-      access_token_key: process.env.twitter_access_key,
-      access_token_secret: process.env.twitter_access_secret,
-    })
-
-    await client.post('statuses/update', params, (error, data, response) => {
-      if (error) {
-        console.log('tweet failed', error)
-      } else {
+    await client.post('statuses/update', params)
+      .then((data, response) => {
         console.log('tweeting quote successful', data, response)
-      }
-    })
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        message: 'Go Serverless v1.0! Your function executed successfully!',
-        input: event,
-      }),
-    }
+        return { message: 'BOTler tweeted something inspirational! ^_^', event }
+      })
+      .catch((error) => {
+        console.log('tweet failed', error)
+        return { message: 'BOTler failed to post a tweet X_X', event }
+      })
   }
 }
 
