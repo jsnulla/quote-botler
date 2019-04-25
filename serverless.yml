@@ -5,6 +5,12 @@ provider:
   runtime: nodejs8.10
   stage: dev
   region: ap-southeast-1
+  environment:
+    favqs_api_key: ${self:custom.environment.favqs_api_key}
+    twitter_consumer_key: ${self:custom.environment.twitter.consumer_key}
+    twitter_consumer_secret: ${self:custom.environment.twitter.consumer_secret}
+    twitter_access_key: ${self:custom.environment.twitter.access_key}
+    twitter_access_secret: ${self:custom.environment.twitter.access_secret}
 
 custom:
   stage: ${opt:stage, self:provider.stage}
@@ -12,5 +18,5 @@ custom:
   environment: ${file(./env.yml):${self:provider.stage}, file(./env.yml):default}
 
 functions:
-  hello:
-    handler: handler.hello
+  getQuotes:
+    handler: handler.getQuotes
