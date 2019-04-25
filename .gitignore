@@ -1,3 +1,6 @@
+# do not include env
+env.yml
+
 # package directories
 node_modules
 jspm_packages
