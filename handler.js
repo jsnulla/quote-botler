@@ -1,4 +1,6 @@
 'use strict'
+const AWS = require('aws-sdk')
+const comprehend = new AWS.Comprehend({ apiVersion: '2017-11-27' });
 const fetch = require('node-fetch')
 const Twitter = require('twitter')
 const client = new Twitter({
@@ -17,19 +19,46 @@ module.exports.tweetQuote = async (event, context) => {
     }
   })
 
-  const chosenQuote = await fetch('https://favqs.com/api/qotd', { method: 'get' })
-    .then(response => response.json())
-    .then((response) => {
-      const isQuoteValid = checkQuoteValidity(response.quote)
-      console.log('quote fetched', response)
-      console.log('quote is valid?', isQuoteValid)
+  let validQuotes = []
+  for (let i = 0; i < 15; i++) {
+    await fetch('https://favqs.com/api/qotd', { method: 'get' })
+      .then(response => response.json())
+      .then((response) => {
+        const isQuoteValid = checkQuoteValidity(response.quote)
+        if (isQuoteValid) {
+          const params = {
+            LanguageCode: 'en',
+            Text: response.quote.body
+          };
 
-      return isQuoteValid ? response.quote : false
-    })
+          comprehend.detectSentiment(params, (err, data) => {
+            if (err) {
+              console.log('COMPREHEND ERROR', err)
+            } else {
+              console.log('COMPREHEND RESULTS', data)
+              response.quote.comprehend = data
+              validQuotes.push(response.quote)
+            }
+          });
+        }
+      })
+  }
+  console.log('validQuotes', validQuotes)
 
-  if (chosenQuote == false) {
-    console.log('chosen quote was not valid :(')
-  } else {
+  const positiveQuotes = await validQuotes.filter(quote => quoteIsPositive(quote))
+  console.log('POSITIVE QUOTES', positiveQuotes)
+
+  const slightlyPositiveQuotes = await validQuotes.filter(quote => quoteIsSlightlyPositive(quote))
+  console.log('SLIGHTLY POSITIVE QUOTES', slightlyPositiveQuotes)
+
+  let chosenQuote = null
+  if (positiveQuotes.length > 0) {
+    chosenQuote = positiveQuotes[Math.floor(Math.random() * Math.floor(positiveQuotes.length))]
+  } else if (slightlyPositiveQuotes.length > 0) {
+    chosenQuote = positiveQuotes[Math.floor(Math.random() * Math.floor(slightlyPositiveQuotes.length))]
+  }
+
+  if (chosenQuote) {
     console.log('chosen quote', chosenQuote)
     const params = {
       status: `"${chosenQuote.body}" - ${chosenQuote.author}\r\n\r\n- JayBot`
@@ -44,7 +73,17 @@ module.exports.tweetQuote = async (event, context) => {
         console.log('tweet failed', error)
         return { message: 'BOTler failed to post a tweet X_X', event }
       })
+  } else {
+    console.log('no positive quotes at this time T_T')
   }
+}
+
+function quoteIsPositive(quote) {
+  return quote.comprehend.Sentiment == "POSITIVE"
+}
+
+function quoteIsSlightlyPositive(quote) {
+  return quote.comprehend.Sentiment == "NEUTRAL" && quote.comprehend.SentimentScore.Positive >= 0.2
 }
 
 function checkQuoteValidity(quote) {
