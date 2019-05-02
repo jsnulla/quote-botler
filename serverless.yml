@@ -5,12 +5,19 @@ provider:
   runtime: nodejs8.10
   stage: dev
   region: ap-southeast-1
+  memorySize: 1024
+  timeout: 30
   environment:
     favqs_api_key: ${self:custom.environment.favqs_api_key}
     twitter_consumer_key: ${self:custom.environment.twitter.consumer_key}
     twitter_consumer_secret: ${self:custom.environment.twitter.consumer_secret}
     twitter_access_key: ${self:custom.environment.twitter.access_key}
     twitter_access_secret: ${self:custom.environment.twitter.access_secret}
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+       - comprehend:*
+      Resource: "*"
 
 custom:
   stage: ${opt:stage, self:provider.stage}
