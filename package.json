@@ -1,0 +1,13 @@
+{
+  "name": "quote_botler",
+  "version": "2.0.0",
+  "scripts": {
+    "build-docker": "docker build . -t quote_botler",
+    "deploy-instructions": "echo '[ NEXT STEP ]: run \\e[1;31m`npm run docker-shell`\\e[0m then do \\e[1;31m`sls deploy`\\e[0m'",
+    "docker-shell": "docker run -it -v ~/.aws/credentials:/root/.aws/credentials:ro quote_botler",
+    "deploy": "npm run build-docker && npm run deploy-instructions",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jason Jay S. Nulla",
+  "license": "ISC"
+}

@@ -1,29 +1,50 @@
-service: quote-botler # NOTE: update this with your service name
+service: quote-botler
 
 provider:
   name: aws
-  runtime: nodejs8.10
-  stage: dev
-  region: ap-southeast-1
-  memorySize: 1024
-  timeout: 30
+  runtime: ruby2.5
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'ap-southeast-1'}
+  memorySize: 256
+  reservedConcurrency: 5
+  timeout: 120
   environment:
-    favqs_api_key: ${self:custom.environment.favqs_api_key}
-    twitter_consumer_key: ${self:custom.environment.twitter.consumer_key}
-    twitter_consumer_secret: ${self:custom.environment.twitter.consumer_secret}
-    twitter_access_key: ${self:custom.environment.twitter.access_key}
-    twitter_access_secret: ${self:custom.environment.twitter.access_secret}
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
   iamRoleStatements:
-    - Effect: "Allow"
+    - Effect: Allow
       Action:
-       - comprehend:*
+        - dynamodb:GetItem
+        - dynamodb:Query
+        - dynamodb:Scan
+      Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/credential-store"
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+      Resource: "arn:aws:kms:ap-southeast-1:*:key/d85c3293-cda4-4c24-8184-dfd9a9a46adf"
+    - Effect: Allow
+      Action:
+        - comprehend:BatchDetectSentiment
       Resource: "*"
 
-custom:
-  stage: ${opt:stage, self:provider.stage}
-  # Fallback to default if it is not in prod.
-  environment: ${file(./env.yml):${self:provider.stage}, file(./env.yml):default}
+package:
+  exclude:
+    - .env
+    - package*.json
+    - node_modules
+    - .pryrc
+    - Rakefile
+    - Dockerfile
 
 functions:
-  tweetQuote:
-    handler: handler.tweetQuote
+  daily_quote:
+    handler: routines/daily_quote.perform
+    events:
+      - schedule: cron(30 10 ? * 2-6 *)
+        description: Tweet inspirational quotes daily on weekdays @ 630pm
+
+  send_love:
+    handler: routines/send_love.perform
+    events:
+      - schedule: cron(0 23 ? * 4 *)
+        description: Tweet love to friends every thursday @ 7am
