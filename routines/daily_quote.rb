@@ -14,7 +14,14 @@ def perform(event:, context:)
     }
 
     tweet = Tweet.create(message: chosen_quote[:message], data: quote_data)
-    tweet.post
+    if tweet.persisted?
+      tweet.post
+    else
+      puts 'Tweet info:'
+      pp tweet.errors.messages
+
+      raise 'Tweet was not saved 😢'
+    end
   rescue => e
     retries += 1
 
